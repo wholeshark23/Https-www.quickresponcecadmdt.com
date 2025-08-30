@@ -1,0 +1,219 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GTA 5 RP CAD/MDT (Revamped)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans">
+  <div class="container mx-auto p-4">
+    <h1 class="text-3xl font-bold text-center mb-6">GTA 5 RP CAD/MDT System (Revamped)</h1>
+
+    <!-- Navigation -->
+    <nav class="flex flex-wrap justify-around mb-6 bg-blue-600 text-white p-4 rounded">
+      <button onclick="showSection('dispatch')" class="hover:bg-blue-700 px-4 py-2 rounded m-1">Dispatch</button>
+      <button onclick="showSection('police')" class="hover:bg-blue-700 px-4 py-2 rounded m-1">Police</button>
+      <button onclick="showSection('fire')" class="hover:bg-blue-700 px-4 py-2 rounded m-1">Fire</button>
+      <button onclick="showSection('dmv')" class="hover:bg-blue-700 px-4 py-2 rounded m-1">DMV</button>
+      <button onclick="showSection('warrants')" class="hover:bg-blue-700 px-4 py-2 rounded m-1">Warrants/BOLOs</button>
+      <button onclick="showSection('civilian')" class="hover:bg-blue-700 px-4 py-2 rounded m-1">Civilian</button>
+    </nav>
+
+    <!-- Dispatch Section -->
+    <section id="dispatch" class="section">
+      <h2 class="text-2xl font-semibold mb-4">Dispatch Dashboard</h2>
+      <div class="mb-4">
+        <h3 class="text-lg font-medium">Create Call</h3>
+        <select id="callOrigin" class="border p-2 m-2">
+          <option value="Caller">Caller</option>
+          <option value="Radio Dispatch">Radio Dispatch</option>
+          <option value="Observed">Observed</option>
+          <option value="Walkup">Walkup</option>
+        </select>
+        <select id="callStatus" class="border p-2 m-2">
+          <option value="Pending">Pending</option>
+          <option value="Active">Active</option>
+          <option value="Closed">Closed</option>
+        </select>
+        <select id="callPriority" class="border p-2 m-2">
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+        </select>
+        <input id="callBlock" type="text" placeholder="Block" class="border p-2 m-2">
+        <input id="callAddress" type="text" placeholder="Address" class="border p-2 m-2 w-full">
+        <input id="callTitle" type="text" placeholder="Call Title" class="border p-2 m-2 w-full">
+        <input id="callDescription" type="text" placeholder="Description" class="border p-2 m-2 w-full">
+        <select id="callCode" class="border p-2 m-2">
+          <option value="1">Code 1</option>
+          <option value="2">Code 2</option>
+          <option value="3">Code 3</option>
+        </select>
+        <select id="callType" class="border p-2 m-2">
+          <option value="Police">Police</option>
+          <option value="EMS">EMS</option>
+          <option value="Fire">Fire</option>
+        </select>
+        <select id="callTone" class="border p-2 m-2">
+          <option value="normal">Normal Tone</option>
+          <option value="urgent">Urgent Tone</option>
+          <option value="emergency">Emergency Tone</option>
+        </select>
+        <button onclick="addCall()" class="bg-blue-600 text-white px-4 py-2 rounded">Log Call</button>
+      </div>
+      <h3 class="text-lg font-medium">Active Calls</h3>
+      <ul id="callList" class="list-disc pl-5"></ul>
+    </section>
+
+    <!-- Police Section -->
+    <section id="police" class="section hidden">
+      <h2 class="text-2xl font-semibold mb-4">Police Management</h2>
+      <div class="mb-4">
+        <h3 class="text-lg font-medium">Add Police Unit</h3>
+        <input id="policeUnitId" type="text" placeholder="Unit ID (e.g., P-101)" class="border p-2 m-2">
+        <button onclick="addUnit('Police')" class="bg-blue-600 text-white px-4 py-2 rounded">Add Unit</button>
+      </div>
+      <h3 class="text-lg font-medium">Police Units</h3>
+      <ul id="policeUnitList" class="list-disc pl-5"></ul>
+    </section>
+
+    <!-- Fire Section -->
+    <section id="fire" class="section hidden">
+      <h2 class="text-2xl font-semibold mb-4">Fire Management</h2>
+      <div class="mb-4">
+        <h3 class="text-lg font-medium">Add Fire Unit</h3>
+        <input id="fireUnitId" type="text" placeholder="Unit ID (e.g., F-201)" class="border p-2 m-2">
+        <button onclick="addUnit('Fire')" class="bg-blue-600 text-white px-4 py-2 rounded">Add Unit</button>
+      </div>
+      <h3 class="text-lg font-medium">Fire Units</h3>
+      <ul id="fireUnitList" class="list-disc pl-5"></ul>
+    </section>
+
+    <!-- DMV Section -->
+    <section id="dmv" class="section hidden">
+      <h2 class="text-2xl font-semibold mb-4">DMV Database</h2>
+      <div class="mb-4">
+        <h3 class="text-lg font-medium">Add Record</h3>
+        <input id="dmvFirstName" type="text" placeholder="First Name" class="border p-2 m-2">
+        <input id="dmvMiddleInitial" type="text" placeholder="Middle Initial" class="border p-2 m-2">
+        <input id="dmvLastName" type="text" placeholder="Last Name" class="border p-2 m-2">
+        <input id="dmvPlate" type="text" placeholder="Plate/License Number" class="border p-2 m-2">
+        <select id="dmvType" class="border p-2 m-2">
+          <option value="Vehicle">Vehicle</option>
+          <option value="License">License</option>
+        </select>
+        <input id="dmvStatus" type="text" placeholder="Status (e.g., Valid, Suspended)" class="border p-2 m-2">
+        <button onclick="addDmvRecord()" class="bg-blue-600 text-white px-4 py-2 rounded">Add Record</button>
+      </div>
+      <h3 class="text-lg font-medium">Search Records</h3>
+      <input id="dmvSearchFirst" type="text" placeholder="First Name" class="border p-2 m-2">
+      <input id="dmvSearchMiddle" type="text" placeholder="Middle Initial" class="border p-2 m-2">
+      <input id="dmvSearchLast" type="text" placeholder="Last Name" class="border p-2 m-2">
+      <input id="dmvSearchPlate" type="text" placeholder="Plate/Name" class="border p-2 m-2">
+      <button onclick="searchDmv()" class="bg-blue-600 text-white px-4 py-2 rounded">Search</button>
+      <ul id="dmvList" class="list-disc pl-5"></ul>
+    </section>
+
+    <!-- Warrants/BOLOs Section (Unchanged) -->
+    <section id="warrants" class="section hidden">
+      <h2 class="text-2xl font-semibold mb-4">Warrants & BOLOs</h2>
+      <div class="mb-4">
+        <h3 class="text-lg font-medium">Add Warrant/BOLO</h3>
+        <input id="warrantName" type="text" placeholder="Suspect/Subject Name" class="border p-2 m-2">
+        <input id="warrantReason" type="text" placeholder="Reason" class="border p-2 m-2">
+        <select id="warrantType" class="border p-2 m-2">
+          <option value="Warrant">Warrant</option>
+          <option value="BOLO">BOLO</option>
+        </select>
+        <button onclick="addWarrant()" class="bg-blue-600 text-white px-4 py-2 rounded">Add</button>
+      </div>
+      <h3 class="text-lg font-medium">Active Warrants/BOLOs</h3>
+      <ul id="warrantList" class="list-disc pl-5"></ul>
+    </section>
+
+    <!-- Civilian Section -->
+    <section id="civilian" class="section hidden">
+      <h2 class="text-2xl font-semibold mb-4">Civilian Portal</h2>
+      <div class="mb-4">
+        <h3 class="text-lg font-medium">Create Civilian Character</h3>
+        <input id="civFirstName" type="text" placeholder="First Name" class="border p-2 m-2">
+        <input id="civMiddleInitial" type="text" placeholder="Middle Initial" class="border p-2 m-2">
+        <input id="civLastName" type="text" placeholder="Last Name" class="border p-2 m-2">
+        <input id="civDob" type="text" placeholder="DOB (YYYY-MM-DD)" class="border p-2 m-2">
+        <button onclick="createCivilian()" class="bg-blue-600 text-white px-4 py-2 rounded">Create</button>
+      </div>
+      <div class="mb-4">
+        <h3 class="text-lg font-medium">Edit Civilian Character</h3>
+        <select id="editCivSelect" class="border p-2 m-2"></select>
+        <input id="editCivFirstName" type="text" placeholder="First Name" class="border p-2 m-2">
+        <input id="editCivMiddleInitial" type="text" placeholder="Middle Initial" class="border p-2 m-2">
+        <input id="editCivLastName" type="text" placeholder="Last Name" class="border p-2 m-2">
+        <input id="editCivDob" type="text" placeholder="DOB (YYYY-MM-DD)" class="border p-2 m-2">
+        <button onclick="editCivilian()" class="bg-blue-600 text-white px-4 py-2 rounded">Edit</button>
+      </div>
+      <div class="mb-4">
+        <h3 class="text-lg font-medium">View Records</h3>
+        <ul id="civRecordList" class="list-disc pl-5"></ul>
+      </div>
+      <div class="mb-4">
+        <h3 class="text-lg font-medium">Request Driver's License / Vehicle Registration</h3>
+        <input id="requestCivName" type="text" placeholder="Your Name" class="border p-2 m-2 w-full">
+        <select id="requestType" class="border p-2 m-2">
+          <option value="License">Driver's License</option>
+          <option value="Vehicle">Vehicle Registration</option>
+        </select>
+        <input id="requestDetails" type="text" placeholder="Details (e.g., Plate for Vehicle)" class="border p-2 m-2 w-full">
+        <button onclick="submitRequest()" class="bg-blue-600 text-white px-4 py-2 rounded">Submit Request</button>
+      </div>
+      <h3 class="text-lg font-medium">Requests</h3>
+      <ul id="requestList" class="list-disc pl-5"></ul>
+      <div class="mb-4">
+        <h3 class="text-lg font-medium">911 Emergency Call</h3>
+        <select id="emergencyType" class="border p-2 m-2">
+          <option value="Police">Police</option>
+          <option value="EMS">EMS</option>
+          <option value="Fire">Fire</option>
+        </select>
+        <input id="emergencyLocation" type="text" placeholder="Location" class="border p-2 m-2 w-full">
+        <input id="emergencyDescription" type="text" placeholder="Description" class="border p-2 m-2 w-full">
+        <button onclick="submit911()" class="bg-red-600 text-white px-4 py-2 rounded">Call
